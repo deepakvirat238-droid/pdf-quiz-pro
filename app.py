@@ -39,46 +39,6 @@ def extract_text_from_pdf(pdf_file):
     
     return text
 
-def parse_pdf_content(pdf_file):
-    questions = []
-    text = extract_text_from_pdf(pdf_file)
-    
-    question_blocks = re.split(r'Q\d+\.', text)
-    
-    for i, block in enumerate(question_blocks[1:], 1):
-        try:
-            question_match = re.search(r'^(.*?)(?=A\)|Answer:)', block, re.DOTALL)
-            if not question_match: continue
-            
-            question_text = question_match.group(1).strip()
-            
-            options = {}
-            option_matches = re.findall(r'([A-E])\)\s*(.*?)(?=\s*[A-E]\)|Answer:|$)', block)
-            for opt_letter, opt_text in option_matches:
-                options[opt_letter] = opt_text.strip()
-            
-            answer_match = re.search(r'Answer:\s*([A-E])', block)
-            if not answer_match: continue
-            
-            correct_answer = answer_match.group(1)
-            
-            # Add AI explanation
-            ai_explanation = generate_ai_explanation(question_text, correct_answer, options)
-            
-            questions.append({
-                "id": i,
-                "question": question_text,
-                "options": options,
-                "correct_answer": correct_answer,
-                "ai_explanation": ai_explanation,
-                "difficulty": random.choice(["Easy", "Medium", "Hard"]),
-                "time_spent": 0,
-                "attempts": 0
-            })
-        except: continue
-    
-    return questions
-
 def generate_ai_explanation(question, correct_answer, options):
     """Generate AI explanation for questions"""
     explanations = {
@@ -115,6 +75,59 @@ def generate_ai_explanation(question, correct_answer, options):
 """
     
     return detailed_explanation
+
+def parse_pdf_content(pdf_file):
+    questions = []
+    text = extract_text_from_pdf(pdf_file)
+    
+    # More robust question splitting
+    question_blocks = re.split(r'(?i)Q\d+\.|\n\d+\.', text)
+    
+    for i, block in enumerate(question_blocks[1:], 1):
+        try:
+            # Improved regex for question extraction
+            question_match = re.search(r'^(.*?)(?=A\)|B\)|C\)|D\)|E\)|Answer:|$)', block, re.DOTALL)
+            if not question_match: 
+                continue
+            
+            question_text = question_match.group(1).strip()
+            
+            # Extract options with improved regex
+            options = {}
+            option_matches = re.findall(r'([A-E])\)\s*(.*?)(?=\s*[A-E]\)|\s*Answer:|$)', block)
+            for opt_letter, opt_text in option_matches:
+                options[opt_letter] = opt_text.strip()
+            
+            # If no options found, create default ones
+            if not options:
+                options = {
+                    'A': 'Option A',
+                    'B': 'Option B', 
+                    'C': 'Option C',
+                    'D': 'Option D'
+                }
+            
+            # Extract answer with improved regex
+            answer_match = re.search(r'(?i)Answer:\s*([A-E])', block)
+            correct_answer = answer_match.group(1) if answer_match else random.choice(list(options.keys()))
+            
+            # Add AI explanation
+            ai_explanation = generate_ai_explanation(question_text, correct_answer, options)
+            
+            questions.append({
+                "id": i,
+                "question": question_text,
+                "options": options,
+                "correct_answer": correct_answer,
+                "ai_explanation": ai_explanation,
+                "difficulty": random.choice(["Easy", "Medium", "Hard"]),
+                "time_spent": 0,
+                "attempts": 0
+            })
+        except Exception as e:
+            continue
+    
+    return questions
 
 def main():
     st.set_page_config(
@@ -180,29 +193,6 @@ def main():
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
     
-    /* View Toggle Styles */
-    .view-toggle {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-    .view-btn {
-        flex: 1;
-        padding: 0.8rem;
-        border-radius: 8px;
-        text-align: center;
-        cursor: pointer;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        border: 2px solid #007bff;
-        background: white;
-        color: #007bff;
-    }
-    .view-btn.active {
-        background: #007bff;
-        color: white;
-    }
-    
     /* AI Explanation Styles */
     .ai-explanation {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -261,23 +251,87 @@ def main():
         overflow: hidden;
     }
     
-    /* Existing styles... */
-    .time-left-box { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 1.5rem; border-radius: 10px; text-align: center; margin-bottom: 1rem; }
-    .bubble-option { background: rgba(255,255,255,0.95); padding: 1rem; border-radius: 25px; border: 2px solid transparent; transition: all 0.3s ease; cursor: pointer; }
+    /* Time and Progress Styles */
+    .time-left-box { 
+        background: linear-gradient(135deg, #e74c3c, #c0392b); 
+        color: white; 
+        padding: 1.5rem; 
+        border-radius: 10px; 
+        text-align: center; 
+        margin-bottom: 1rem; 
+    }
+    .bubble-option { 
+        background: rgba(255,255,255,0.95); 
+        padding: 1rem; 
+        border-radius: 25px; 
+        border: 2px solid transparent; 
+        transition: all 0.3s ease; 
+        cursor: pointer; 
+        margin: 0.5rem 0;
+    }
+    .bubble-option:hover {
+        border-color: #007bff;
+        transform: scale(1.02);
+    }
+    .bubble-option.selected {
+        background: #007bff;
+        color: white;
+        border-color: #0056b3;
+    }
+    
+    /* Game Profile Styles */
+    .level-progress {
+        background: #f0f0f0;
+        border-radius: 10px;
+        height: 20px;
+        margin: 0.5rem 0;
+    }
+    .level-progress-fill {
+        background: linear-gradient(45deg, #FF6B6B, #FF8E53);
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.5s ease;
+    }
+    .achievement-badge {
+        background: linear-gradient(45deg, #FFD700, #FFA500);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: bold;
+        margin: 0.2rem;
+        display: inline-block;
+    }
     </style>
     """, unsafe_allow_html=True)
     
     st.markdown('<div class="main-header">🧠 PDF Quiz PRO - Ultimate Edition</div>', unsafe_allow_html=True)
     
     # Initialize session state
-    if 'quiz_mode' not in st.session_state:
-        st.session_state.quiz_mode = "practice"
-    if 'current_view' not in st.session_state:
-        st.session_state.current_view = "question"  # "question" or "grid"
-    if 'show_ai_explanation' not in st.session_state:
-        st.session_state.show_ai_explanation = {}
-    if 'marked_review' not in st.session_state:
-        st.session_state.marked_review = set()
+    default_states = {
+        'quiz_mode': "practice",
+        'current_view': "question",
+        'show_ai_explanation': {},
+        'marked_review': set(),
+        'user_answers': {},
+        'current_q': 0,
+        'quiz_started': False,
+        'start_time': time.time(),
+        'quiz_completed': False,
+        'user_profile': {
+            'level': 1,
+            'xp': 0,
+            'achievements': [],
+            'streak': 0,
+            'total_quizzes': 0
+        },
+        'ai_suggestions': {},
+        'dark_mode': False,
+        'questions': []
+    }
+    
+    for key, value in default_states.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
     
     # Sidebar
     with st.sidebar:
@@ -311,319 +365,395 @@ def main():
                 st.rerun()
         
         st.markdown("---")
+        st.header("🎮 Game Profile")
+        
+        # User profile
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Level", st.session_state.user_profile['level'])
+        with col2:
+            st.metric("XP", st.session_state.user_profile['xp'])
+        
+        # Level progress
+        st.write("Level Progress")
+        level_progress = (st.session_state.user_profile['xp'] % 1000) / 10
+        st.markdown(f"""
+        <div class="level-progress">
+            <div class="level-progress-fill" style="width: {level_progress}%"></div>
+        </div>
+        <div style="text-align: center; font-size: 0.8rem;">{level_progress}% to next level</div>
+        """, unsafe_allow_html=True)
+        
+        # Achievements
+        if st.session_state.user_profile['achievements']:
+            st.write("🏆 Achievements")
+            for achievement in st.session_state.user_profile['achievements']:
+                st.markdown(f'<div class="achievement-badge">{achievement}</div>', unsafe_allow_html=True)
+        
+        st.markdown("---")
         st.header("🔍 Navigation")
     
-    # File upload
-    uploaded_file = st.file_uploader("📁 Upload PDF File", type="pdf")
+    # Main content area
+    col1, col2 = st.columns([3, 1])
     
-    if uploaded_file:
-        with st.spinner("🔍 Processing PDF with AI Analysis..."):
-            questions = parse_pdf_content(uploaded_file)
+    with col1:
+        # File upload
+        uploaded_file = st.file_uploader("📁 Upload PDF File", type="pdf", help="Upload a PDF file containing quiz questions")
         
-        if not questions:
-            st.error("❌ No questions found. Please check the PDF format.")
-            return
-        
-        st.success(f"✅ Found {len(questions)} questions! + 🤖 AI Explanations Ready")
-        
-        # Initialize session state
-        if 'user_answers' not in st.session_state:
-            st.session_state.user_answers = {}
-        if 'current_q' not in st.session_state:
-            st.session_state.current_q = 0
-        if 'quiz_started' not in st.session_state:
-            st.session_state.quiz_started = True
-        if 'start_time' not in st.session_state:
-            st.session_state.start_time = time.time()
-        if 'quiz_completed' not in st.session_state:
-            st.session_state.quiz_completed = False
-        
-        # Quick Jump Grid - ALWAYS VISIBLE
-        st.subheader("🎯 Quick Jump to Any Question")
-        
-        # Create grid with 10 questions per row
-        rows = (len(questions) + 9) // 10  # Calculate number of rows needed
-        
-        for row in range(rows):
-            cols = st.columns(10)
-            start_idx = row * 10
-            end_idx = min(start_idx + 10, len(questions))
+        if uploaded_file:
+            if not st.session_state.questions or st.session_state.get('uploaded_file') != uploaded_file.name:
+                with st.spinner("🔍 Processing PDF with AI Analysis..."):
+                    st.session_state.questions = parse_pdf_content(uploaded_file)
+                    st.session_state.uploaded_file = uploaded_file.name
+                    # Reset quiz state when new file is uploaded
+                    st.session_state.user_answers = {}
+                    st.session_state.current_q = 0
+                    st.session_state.quiz_completed = False
+                    st.session_state.quiz_started = True
+                    st.session_state.start_time = time.time()
             
-            for idx in range(start_idx, end_idx):
-                with cols[idx % 10]:
-                    is_answered = questions[idx]['id'] in st.session_state.user_answers
-                    is_current = idx == st.session_state.current_q
-                    is_marked = idx in st.session_state.marked_review
-                    
-                    btn_class = "jump-btn"
-                    if is_current:
-                        btn_class += " current"
-                    elif is_answered:
-                        btn_class += " answered"
-                    elif is_marked:
-                        btn_class += " marked"
-                    
-                    btn_text = f"Q{idx+1}"
-                    if is_marked:
-                        btn_text = f"📌{idx+1}"
-                    
-                    if st.button(btn_text, key=f"jump_{idx}", use_container_width=True):
-                        st.session_state.current_q = idx
-                        st.rerun()
-        
-        # View Toggle
-        st.markdown("""
-        <div class="view-toggle">
-            <div class="view-btn %s" onclick="setView('question')">📖 Question View</div>
-            <div class="view-btn %s" onclick="setView('grid')">🔲 Grid View</div>
-        </div>
-        """ % ("active" if st.session_state.current_view == "question" else "", 
-               "active" if st.session_state.current_view == "grid" else ""), 
-        unsafe_allow_html=True)
-        
-        # Display based on view mode
-        if st.session_state.current_view == "grid":
-            # GRID VIEW
-            st.subheader("🔲 All Questions - Grid View")
+            questions = st.session_state.questions
             
-            st.markdown('<div class="grid-view-container">', unsafe_allow_html=True)
+            if not questions:
+                st.error("❌ No questions found. Please check the PDF format.")
+                st.info("""
+                **Expected PDF format:**
+                - Questions should start with 'Q1.', 'Q2.', etc.
+                - Options should be labeled A), B), C), D)
+                - Answers should be marked with 'Answer: A' format
+                """)
+                return
             
-            # Display all questions in grid
-            for idx, question in enumerate(questions):
-                is_answered = question['id'] in st.session_state.user_answers
-                is_current = idx == st.session_state.current_q
-                is_marked = idx in st.session_state.marked_review
+            st.success(f"✅ Found {len(questions)} questions! + 🤖 AI Explanations Ready")
+            
+            # Quick Jump Grid
+            st.subheader("🎯 Quick Jump to Any Question")
+            
+            # Create grid with 10 questions per row
+            rows = (len(questions) + 9) // 10
+            
+            for row in range(rows):
+                cols = st.columns(10)
+                start_idx = row * 10
+                end_idx = min(start_idx + 10, len(questions))
                 
-                card_class = "question-card"
-                if is_current:
-                    card_class += " current"
-                if is_answered:
-                    card_class += " answered"
-                
-                st.markdown(f"""
-                <div class="{card_class}" onclick="selectQuestion({idx})">
-                    <strong>Q{idx+1}</strong>
-                    <div class="question-preview">
-                        {question['question'][:100]}...
-                    </div>
-                    <div style="margin-top: 0.5rem; font-size: 0.8rem;">
-                        {'✅ Answered' if is_answered else '⭕ Unanswered'}
-                        {' 📌 Marked' if is_marked else ''}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Hidden button for functionality
-                if st.button(f"Open Q{idx+1}", key=f"grid_{idx}", use_container_width=True):
-                    st.session_state.current_q = idx
-                    st.session_state.current_view = "question"  # Switch to question view
+                for idx in range(start_idx, end_idx):
+                    with cols[idx % 10]:
+                        is_answered = questions[idx]['id'] in st.session_state.user_answers
+                        is_current = idx == st.session_state.current_q
+                        is_marked = idx in st.session_state.marked_review
+                        
+                        btn_text = f"Q{idx+1}"
+                        if is_marked:
+                            btn_text = f"📌{idx+1}"
+                        
+                        button_type = "primary" if is_current else "secondary"
+                        if st.button(btn_text, key=f"jump_{idx}", use_container_width=True, type=button_type):
+                            st.session_state.current_q = idx
+                            st.rerun()
+            
+            # View Toggle
+            view_col1, view_col2 = st.columns(2)
+            with view_col1:
+                if st.button("📖 Question View", use_container_width=True,
+                           type="primary" if st.session_state.current_view == "question" else "secondary"):
+                    st.session_state.current_view = "question"
+                    st.rerun()
+            with view_col2:
+                if st.button("🔲 Grid View", use_container_width=True,
+                           type="primary" if st.session_state.current_view == "grid" else "secondary"):
+                    st.session_state.current_view = "grid"
                     st.rerun()
             
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-        else:
-            # QUESTION VIEW
-            if st.session_state.quiz_mode == "exam":
-                # EXAM MODE INTERFACE
-                remaining_time = max(0, 3600 - (time.time() - st.session_state.start_time))
-                minutes = int(remaining_time // 60)
-                seconds = int(remaining_time % 60)
+            # Display based on view mode
+            if st.session_state.current_view == "grid":
+                # GRID VIEW
+                st.subheader("🔲 All Questions - Grid View")
                 
-                st.markdown(f"""
-                <div class="time-left-box">
-                    <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">Time Left</div>
-                    <div style="font-size: 2.5rem; font-weight: 700; font-family: 'Courier New', monospace;">
-                        {minutes:02d} : {seconds:02d}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            if not st.session_state.quiz_completed:
-                current_q = questions[st.session_state.current_q]
-                current_answer = st.session_state.user_answers.get(current_q['id'])
+                # Display all questions in grid
+                cols = st.columns(3)
+                for idx, question in enumerate(questions):
+                    col_idx = idx % 3
+                    with cols[col_idx]:
+                        is_answered = question['id'] in st.session_state.user_answers
+                        is_current = idx == st.session_state.current_q
+                        is_marked = idx in st.session_state.marked_review
+                        
+                        status = "✅ Answered" if is_answered else "⭕ Unanswered"
+                        if is_marked:
+                            status += " 📌 Marked"
+                        
+                        if st.button(
+                            f"Q{idx+1}: {question['question'][:50]}...\n{status}",
+                            key=f"grid_{idx}",
+                            use_container_width=True,
+                            type="primary" if is_current else "secondary"
+                        ):
+                            st.session_state.current_q = idx
+                            st.session_state.current_view = "question"
+                            st.rerun()
                 
-                # Question Display
+            else:
+                # QUESTION VIEW
                 if st.session_state.quiz_mode == "exam":
+                    # EXAM MODE INTERFACE
+                    remaining_time = max(0, 3600 - (time.time() - st.session_state.start_time))
+                    minutes = int(remaining_time // 60)
+                    seconds = int(remaining_time % 60)
+                    
                     st.markdown(f"""
-                    <div style="background: white; padding: 2rem; border-radius: 10px; margin-bottom: 1.5rem; border-left: 5px solid #3498db;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                            <div style="font-size: 1.4rem; font-weight: 700; color: #2c3e50;">Question. {st.session_state.current_q + 1}</div>
-                            <div style="background: #e74c3c; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600;">Last 6 Minutes</div>
+                    <div class="time-left-box">
+                        <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">Time Left</div>
+                        <div style="font-size: 2.5rem; font-weight: 700; font-family: 'Courier New', monospace;">
+                            {minutes:02d} : {seconds:02d}
                         </div>
-                        <div style="font-size: 1.3rem; font-weight: 600; color: #2c3e50; line-height: 1.6;">
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                if not st.session_state.quiz_completed:
+                    current_q = questions[st.session_state.current_q]
+                    current_answer = st.session_state.user_answers.get(current_q['id'])
+                    
+                    # Question Display
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem; border-radius: 15px; margin-bottom: 1.5rem; color: white;">
+                        <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem;">Question {st.session_state.current_q + 1} of {len(questions)}</div>
+                        <div style="font-size: 1.3rem; font-weight: 600; line-height: 1.6;">
                             {current_q['question']}
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2.5rem; border-radius: 20px; margin-bottom: 1rem; color: white;">
-                        <div style="font-size: 1.4rem; font-weight: 600; line-height: 1.6;">
-                            Q{st.session_state.current_q + 1}. {current_q['question']}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                # Options
-                if st.session_state.quiz_mode == "exam":
-                    # Exam mode options
+                    
+                    # Options
+                    selected_option = None
                     for opt_letter, opt_text in current_q['options'].items():
                         is_selected = current_answer == opt_letter
-                        if st.button(f"{opt_letter}) {opt_text}", 
-                                   key=f"exam_opt_{current_q['id']}_{opt_letter}",
-                                   use_container_width=True,
-                                   type="primary" if is_selected else "secondary"):
+                        if is_selected:
+                            selected_option = opt_letter
+                        
+                        if st.button(
+                            f"{opt_letter}) {opt_text}",
+                            key=f"opt_{current_q['id']}_{opt_letter}",
+                            use_container_width=True,
+                            type="primary" if is_selected else "secondary"
+                        ):
                             st.session_state.user_answers[current_q['id']] = opt_letter
                             st.rerun()
-                else:
-                    # Practice mode bubble options
-                    st.markdown('<div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.8rem; margin-top: 1rem;">', unsafe_allow_html=True)
                     
-                    for opt_letter, opt_text in current_q['options'].items():
-                        is_selected = current_answer == opt_letter
-                        bubble_class = "bubble-option"
-                        if is_selected:
-                            bubble_class += " selected"
-                        
+                    # AI Explanation Section
+                    st.markdown("---")
+                    exp_col1, exp_col2 = st.columns([3, 1])
+                    
+                    with exp_col1:
+                        st.subheader("🤖 AI Explanation")
+                    
+                    with exp_col2:
+                        if st.button("🔍 Show AI Explanation", use_container_width=True):
+                            st.session_state.show_ai_explanation[current_q['id']] = True
+                    
+                    if st.session_state.show_ai_explanation.get(current_q['id'], False):
                         st.markdown(f"""
-                        <div class="{bubble_option}" onclick="selectOption('{opt_letter}')">
-                            <strong>{opt_letter})</strong> {opt_text}
+                        <div class="ai-explanation">
+                            <h4>🧠 AI Analysis</h4>
+                            {current_q['ai_explanation']}
+                            
+                            <div style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                                <strong>💡 Pro Tip:</strong> This question is rated <strong>{current_q['difficulty']}</strong> difficulty. 
+                            </div>
                         </div>
                         """, unsafe_allow_html=True)
-                        
-                        if st.button(f"Select {opt_letter}", key=f"practice_opt_{current_q['id']}_{opt_letter}", 
-                                   use_container_width=True, type="primary" if is_selected else "secondary"):
-                            st.session_state.user_answers[current_q['id']] = opt_letter
-                            st.rerun()
                     
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    # Navigation Buttons
+                    if st.session_state.quiz_mode == "exam":
+                        # Exam navigation
+                        exam_col1, exam_col2, exam_col3 = st.columns(3)
+                        with exam_col1:
+                            if st.button("⏮️ Previous", use_container_width=True, disabled=st.session_state.current_q == 0):
+                                if st.session_state.current_q > 0:
+                                    st.session_state.current_q -= 1
+                                    st.rerun()
+                        with exam_col2:
+                            mark_text = "📌 Mark" if st.session_state.current_q not in st.session_state.marked_review else "✅ Unmark"
+                            if st.button(f"{mark_text}", use_container_width=True):
+                                if st.session_state.current_q in st.session_state.marked_review:
+                                    st.session_state.marked_review.remove(st.session_state.current_q)
+                                else:
+                                    st.session_state.marked_review.add(st.session_state.current_q)
+                                st.rerun()
+                        with exam_col3:
+                            next_text = "💾 Save & Next" if st.session_state.current_q < len(questions) - 1 else "🏁 Finish Exam"
+                            if st.button(next_text, use_container_width=True, type="primary"):
+                                if st.session_state.current_q < len(questions) - 1:
+                                    st.session_state.current_q += 1
+                                else:
+                                    st.session_state.quiz_completed = True
+                                st.rerun()
+                    else:
+                        # Practice navigation
+                        practice_col1, practice_col2, practice_col3, practice_col4 = st.columns(4)
+                        with practice_col1:
+                            if st.button("◀ Previous", use_container_width=True, disabled=st.session_state.current_q == 0):
+                                if st.session_state.current_q > 0:
+                                    st.session_state.current_q -= 1
+                                    st.rerun()
+                        with practice_col2:
+                            if st.session_state.current_q < len(questions) - 1:
+                                if st.button("Next ▶", use_container_width=True):
+                                    st.session_state.current_q += 1
+                                    st.rerun()
+                            else:
+                                if st.button("Finish 🏁", use_container_width=True, type="primary"):
+                                    st.session_state.quiz_completed = True
+                                    st.rerun()
+                        with practice_col3:
+                            if current_answer:
+                                if st.button("✅ Check Answer", use_container_width=True, type="primary"):
+                                    # Show correct answer
+                                    correct_answer = current_q['correct_answer']
+                                    if current_answer == correct_answer:
+                                        st.success(f"🎉 Correct! Answer: {correct_answer}")
+                                        # Add XP for correct answer
+                                        st.session_state.user_profile['xp'] += 10
+                                    else:
+                                        st.error(f"❌ Incorrect! Correct answer: {correct_answer}")
+                            else:
+                                st.button("✅ Check Answer", use_container_width=True, disabled=True)
+                        with practice_col4:
+                            if st.button("🔄 Restart", use_container_width=True):
+                                for key in ['user_answers', 'current_q', 'quiz_completed', 'marked_review', 'show_ai_explanation']:
+                                    if key in st.session_state:
+                                        if key == 'show_ai_explanation':
+                                            st.session_state[key] = {}
+                                        elif key == 'marked_review':
+                                            st.session_state[key] = set()
+                                        else:
+                                            st.session_state[key] = default_states[key]
+                                st.session_state.quiz_started = True
+                                st.session_state.start_time = time.time()
+                                st.rerun()
                 
-                # AI Explanation Section - AVAILABLE IN BOTH MODES
-                st.markdown("---")
-                ai_col1, ai_col2 = st.columns([3, 1])
-                
-                with ai_col1:
-                    st.subheader("🤖 AI Explanation")
-                
-                with ai_col2:
-                    if st.button("🔍 Show AI Explanation", use_container_width=True):
-                        st.session_state.show_ai_explanation[current_q['id']] = True
-                
-                if st.session_state.show_ai_explanation.get(current_q['id'], False):
+                else:
+                    # Results screen
+                    st.balloons()
+                    st.markdown('<div class="main-header">🏆 Quiz Completed!</div>', unsafe_allow_html=True)
+                    
+                    # Calculate results
+                    correct_count = 0
+                    for q in questions:
+                        if st.session_state.user_answers.get(q['id']) == q['correct_answer']:
+                            correct_count += 1
+                    
+                    total_time = time.time() - st.session_state.start_time
+                    score_percent = (correct_count / len(questions)) * 100
+                    
+                    # Update user profile
+                    st.session_state.user_profile['total_quizzes'] += 1
+                    st.session_state.user_profile['xp'] += correct_count * 5
+                    if score_percent >= 90:
+                        st.session_state.user_profile['achievements'].append("Quiz Master")
+                    
                     st.markdown(f"""
-                    <div class="ai-explanation">
-                        <h4>🧠 AI Analysis</h4>
-                        {current_q['ai_explanation']}
-                        
-                        <div style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 8px;">
-                            <strong>💡 Pro Tip:</strong> This question is rated <strong>{current_q['difficulty']}</strong> difficulty. 
-                            Focus on understanding the underlying concept rather than memorizing.
-                        </div>
+                    <div style="background: linear-gradient(135deg, #00b09b, #96c93d); color: white; padding: 2rem; border-radius: 20px; text-align: center; margin-bottom: 2rem;">
+                        <h2>Your Score: {correct_count}/{len(questions)}</h2>
+                        <h1>{score_percent:.1f}%</h1>
+                        <p>Time Taken: {int(total_time // 60):02d}:{int(total_time % 60):02d}</p>
+                        <p>{'🎯 Perfect Score!' if score_percent == 100 else '🌟 Excellent!' if score_percent >= 90 else '👍 Great Job!'}</p>
                     </div>
                     """, unsafe_allow_html=True)
-                
-                # Navigation Buttons
-                if st.session_state.quiz_mode == "exam":
-                    # Exam navigation
-                    exam_col1, exam_col2, exam_col3 = st.columns(3)
-                    with exam_col1:
-                        if st.button("⏮️ Previous", use_container_width=True) and st.session_state.current_q > 0:
-                            st.session_state.current_q -= 1
-                            st.rerun()
-                    with exam_col2:
-                        if st.button("📌 Mark & Next", use_container_width=True):
-                            st.session_state.marked_review.add(st.session_state.current_q)
-                            if st.session_state.current_q < len(questions) - 1:
-                                st.session_state.current_q += 1
-                            st.rerun()
-                    with exam_col3:
-                        if st.button("💾 Save & Next", use_container_width=True, type="primary"):
-                            if st.session_state.current_q < len(questions) - 1:
-                                st.session_state.current_q += 1
-                            else:
-                                st.session_state.quiz_completed = True
-                            st.rerun()
-                else:
-                    # Practice navigation
-                    practice_col1, practice_col2, practice_col3, practice_col4 = st.columns(4)
-                    with practice_col1:
-                        if st.button("◀ Previous", use_container_width=True) and st.session_state.current_q > 0:
-                            st.session_state.current_q -= 1
-                            st.rerun()
-                    with practice_col2:
-                        if st.session_state.current_q < len(questions) - 1:
-                            if st.button("Next ▶", use_container_width=True):
-                                st.session_state.current_q += 1
-                                st.rerun()
-                        else:
-                            if st.button("Finish 🏁", use_container_width=True, type="primary"):
-                                st.session_state.quiz_completed = True
-                                st.rerun()
-                    with practice_col3:
-                        if current_answer:
-                            if st.button("✅ Check Answer", use_container_width=True, type="primary"):
-                                # Show correct answer
-                                correct_answer = current_q['correct_answer']
-                                if current_answer == correct_answer:
-                                    st.success(f"🎉 Correct! Answer: {correct_answer}")
+                    
+                    # Performance chart
+                    fig = go.Figure(go.Indicator(
+                        mode = "gauge+number+delta",
+                        value = score_percent,
+                        domain = {'x': [0, 1], 'y': [0, 1]},
+                        title = {'text': "Performance Score"},
+                        gauge = {
+                            'axis': {'range': [None, 100]},
+                            'bar': {'color': "darkblue"},
+                            'steps': [
+                                {'range': [0, 50], 'color': "lightgray"},
+                                {'range': [50, 80], 'color': "gray"}],
+                            'threshold': {
+                                'line': {'color': "red", 'width': 4},
+                                'thickness': 0.75,
+                                'value': 90}}))
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Restart button
+                    if st.button("🔄 Start New Quiz", use_container_width=True, type="primary"):
+                        for key in ['user_answers', 'current_q', 'quiz_completed', 'marked_review', 'show_ai_explanation']:
+                            if key in st.session_state:
+                                if key == 'show_ai_explanation':
+                                    st.session_state[key] = {}
+                                elif key == 'marked_review':
+                                    st.session_state[key] = set()
                                 else:
-                                    st.error(f"❌ Incorrect! Correct answer: {correct_answer}")
-                        else:
-                            st.button("✅ Check Answer", use_container_width=True, disabled=True)
-                    with practice_col4:
-                        if st.button("🔄 Restart", use_container_width=True):
-                            for key in ['user_answers', 'current_q', 'quiz_completed', 'quiz_started', 'start_time', 'show_ai_explanation', 'marked_review']:
-                                if key in st.session_state:
-                                    del st.session_state[key]
-                            st.rerun()
+                                    st.session_state[key] = default_states[key]
+                        st.session_state.quiz_started = True
+                        st.session_state.start_time = time.time()
+                        st.rerun()
+
+        else:
+            st.info("👆 Please upload a PDF file to start the quiz")
+            st.markdown("""
+            ### 📝 Expected PDF Format:
+            ```
+            Q1. What is the capital of France?
+            A) London
+            B) Berlin
+            C) Paris
+            D) Madrid
+            Answer: C
             
-            else:
-                # Results screen
-                st.balloons()
-                st.markdown('<div class="main-header">🏆 Quiz Completed!</div>', unsafe_allow_html=True)
-                
-                # Calculate results
-                correct_count = 0
-                for q in questions:
-                    if st.session_state.user_answers.get(q['id']) == q['correct_answer']:
-                        correct_count += 1
-                
-                total_time = time.time() - st.session_state.start_time
-                score_percent = (correct_count / len(questions)) * 100
-                
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #00b09b, #96c93d); color: white; padding: 2rem; border-radius: 20px; text-align: center; margin-bottom: 2rem;">
-                    <h2>Your Score: {correct_count}/{len(questions)}</h2>
-                    <h1>{score_percent:.1f}%</h1>
-                    <p>Time Taken: {int(total_time // 60):02d}:{int(total_time % 60):02d}</p>
-                    <p>{'🎯 Perfect Score!' if score_percent == 100 else '🌟 Excellent!' if score_percent >= 90 else '👍 Great Job!'}</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Restart button
-                if st.button("🔄 Start New Quiz", use_container_width=True, type="primary"):
-                    for key in ['user_answers', 'current_q', 'quiz_completed', 'quiz_started', 'start_time', 'show_ai_explanation', 'marked_review']:
-                        if key in st.session_state:
-                            del st.session_state[key]
-                    st.rerun()
+            Q2. Which planet is known as the Red Planet?
+            A) Venus
+            B) Mars
+            C) Jupiter
+            D) Saturn
+            Answer: B
+            ```
+            """)
 
-    else:
-        st.info("👆 Please upload a PDF file to start the quiz")
-
-# JavaScript for interactive elements
-st.markdown("""
-<script>
-function setView(view) {
-    // This would be handled by Streamlit buttons in actual implementation
-    console.log("Switching to view: " + view);
-}
-
-function selectQuestion(index) {
-    // This would trigger a Streamlit rerun with the selected question
-    console.log("Selected question: " + index);
-}
-</script>
-""", unsafe_allow_html=True)
+    with col2:
+        # Quick Actions Panel
+        st.subheader("⚡ Quick Actions")
+        
+        if st.button("🎯 Smart Practice", use_container_width=True):
+            st.info("AI will focus on your weak areas!")
+        
+        if st.button("📊 Performance", use_container_width=True):
+            correct_count = sum(1 for q in st.session_state.questions 
+                              if st.session_state.user_answers.get(q['id']) == q['correct_answer'])
+            total_answered = len(st.session_state.user_answers)
+            accuracy = (correct_count / total_answered * 100) if total_answered > 0 else 0
+            
+            st.metric("Accuracy", f"{accuracy:.1f}%")
+            st.metric("Questions Done", f"{total_answered}/{len(st.session_state.questions)}")
+            st.metric("Streak", f"{st.session_state.user_profile['streak']} days")
+        
+        # Study Timer
+        st.subheader("⏱️ Study Timer")
+        timer_col1, timer_col2, timer_col3 = st.columns(3)
+        with timer_col1:
+            if st.button("25m", use_container_width=True):
+                st.session_state.study_timer = 25 * 60
+        with timer_col2:
+            if st.button("45m", use_container_width=True):
+                st.session_state.study_timer = 45 * 60
+        with timer_col3:
+            if st.button("60m", use_container_width=True):
+                st.session_state.study_timer = 60 * 60
+        
+        if st.session_state.get('study_timer', 0) > 0:
+            st.info(f"⏰ Study session: {st.session_state.study_timer//60} minutes")
+        
+        # Quick Stats
+        st.subheader("📈 Today's Stats")
+        st.metric("Questions Solved", len(st.session_state.user_answers))
+        st.metric("Correct Rate", 
+                 f"{(sum(1 for q in st.session_state.questions if st.session_state.user_answers.get(q['id']) == q['correct_answer']) / len(st.session_state.user_answers) * 100):.1f}%" 
+                 if st.session_state.user_answers else "0%")
 
 if __name__ == "__main__":
     main()
