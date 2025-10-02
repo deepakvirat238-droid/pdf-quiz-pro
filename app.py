@@ -38,7 +38,6 @@ def parse_pdf_content(pdf_file):
     questions = []
     text = extract_text_from_pdf(pdf_file)
     
-    # ✅ SIMPLIFIED PARSING - Debug code hata diya
     question_blocks = re.split(r'Q\d+\.', text)
     
     for i, block in enumerate(question_blocks[1:], 1):
@@ -64,8 +63,7 @@ def parse_pdf_content(pdf_file):
                 "options": options,
                 "correct_answer": correct_answer
             })
-        except: 
-            continue
+        except: continue
     
     return questions
 
@@ -73,72 +71,135 @@ def main():
     st.set_page_config(
         page_title="PDF Quiz PRO", 
         page_icon="🚀",
-        layout="wide"
+        layout="wide",
+        initial_sidebar_state="expanded"
     )
     
-    # Professional CSS
+    # Professional CSS - Ediquity Style
     st.markdown("""
     <style>
     .main-header {
-        font-size: 2.5rem;
-        color: #1f77b4;
+        font-size: 2.8rem;
+        color: #2E86AB;
         text-align: center;
         margin-bottom: 1rem;
+        font-weight: 700;
     }
     .sub-header {
-        font-size: 1.2rem;
+        font-size: 1.3rem;
         color: #666;
         text-align: center;
         margin-bottom: 2rem;
     }
-    .question-box {
-        background-color: #f8f9fa;
-        padding: 2rem;
-        border-radius: 10px;
-        border-left: 5px solid #1f77b4;
-        margin-bottom: 1rem;
+    .question-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2.5rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        color: white;
+    }
+    .question-text {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+    .options-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .option-card {
+        background: rgba(255,255,255,0.95);
+        padding: 1.2rem;
+        border-radius: 12px;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        color: #333;
+    }
+    .option-card:hover {
+        border-color: #2E86AB;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .option-card.selected {
+        border-color: #2E86AB;
+        background: #e3f2fd;
     }
     .timer-box {
-        background-color: #ff6b6b;
+        background: linear-gradient(45deg, #FF6B6B, #FF8E53);
         color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
+        padding: 1rem 2rem;
+        border-radius: 50px;
         font-weight: bold;
         text-align: center;
+        font-size: 1.2rem;
+        box-shadow: 0 5px 15px rgba(255,107,107,0.3);
+        margin-bottom: 2rem;
+    }
+    .progress-container {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+    }
+    .nav-button {
+        padding: 0.8rem 2rem;
+        border-radius: 25px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .nav-button-primary {
+        background: linear-gradient(45deg, #2E86AB, #4BB3FD);
+        color: white;
+    }
+    .nav-button-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .result-card {
+        background: linear-gradient(135deg, #00b09b, #96c93d);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        text-align: center;
+        margin-bottom: 2rem;
     }
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown('<div class="main-header">🚀 PDF Quiz PRO</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Advanced PDF Quiz with Timer, OCR & Professional Features</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">📚 PDF Quiz PRO</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Professional Quiz Platform - Ediquity Style</div>', unsafe_allow_html=True)
     
-    # Sidebar for professional features
+    # Sidebar for settings
     with st.sidebar:
         st.header("⚙️ Quiz Settings")
         
-        # Timer settings
-        timer_enabled = st.checkbox("Enable Timer", value=True)
-        if timer_enabled:
-            minutes = st.number_input("Minutes", min_value=1, max_value=60, value=10)
-            total_seconds = minutes * 60
+        # Timer type selection
+        timer_type = st.radio(
+            "⏰ Timer Type:",
+            ["Full Quiz Timer", "Per Question Timer", "No Timer"]
+        )
         
-        st.header("🔍 Quick Navigation")
+        if timer_type == "Full Quiz Timer":
+            quiz_minutes = st.slider("Total Quiz Time (minutes):", 1, 60, 15)
+            total_seconds = quiz_minutes * 60
+        elif timer_type == "Per Question Timer":
+            question_seconds = st.slider("Time per Question (seconds):", 10, 300, 60)
+        
+        st.markdown("---")
+        st.header("🔍 Navigation")
     
-    with st.expander("📋 Expected Format (4-5 Options)", expanded=False):
-        st.code("""
-Q1. What is the capital of France?
-A) London
-B) Berlin  
-C) Paris
-D) Madrid
-E) Rome
-Answer: C
-        """)
-    
+    # File upload
     uploaded_file = st.file_uploader("📁 Upload PDF File", type="pdf")
     
     if uploaded_file:
-        with st.spinner("🔍 Processing PDF... (OCR enabled for scanned PDFs)"):
+        with st.spinner("🔍 Processing PDF... Creating your quiz..."):
             questions = parse_pdf_content(uploaded_file)
         
         if not questions:
@@ -147,120 +208,166 @@ Answer: C
         
         st.success(f"✅ Found {len(questions)} questions!")
         
-        # ✅ DEBUG: Simple check
-        st.info(f"📊 First question preview: {questions[0]['question'][:50]}...")
-        
         # Initialize session state
         if 'user_answers' not in st.session_state:
             st.session_state.user_answers = {}
         if 'current_q' not in st.session_state:
             st.session_state.current_q = 0
-        if 'show_answer' not in st.session_state:
-            st.session_state.show_answer = {}
         if 'quiz_started' not in st.session_state:
             st.session_state.quiz_started = True
         if 'start_time' not in st.session_state:
             st.session_state.start_time = time.time()
         if 'quiz_completed' not in st.session_state:
             st.session_state.quiz_completed = False
+        if 'question_start_time' not in st.session_state:
+            st.session_state.question_start_time = time.time()
         
         # Timer logic
-        if timer_enabled and not st.session_state.quiz_completed:
-            elapsed_time = time.time() - st.session_state.start_time
-            remaining_time = max(0, total_seconds - elapsed_time)
+        if timer_type != "No Timer" and not st.session_state.quiz_completed:
+            if timer_type == "Full Quiz Timer":
+                elapsed_time = time.time() - st.session_state.start_time
+                remaining_time = max(0, total_seconds - elapsed_time)
+                
+                if remaining_time <= 0:
+                    st.session_state.quiz_completed = True
+                    st.error("⏰ Time's up! Quiz auto-submitted.")
+                
+                minutes = int(remaining_time // 60)
+                seconds = int(remaining_time % 60)
+                
+                st.markdown(f"""
+                <div class="timer-box">
+                    ⏰ Total Time Remaining: {minutes:02d}:{seconds:02d}
+                </div>
+                """, unsafe_allow_html=True)
             
-            if remaining_time <= 0:
-                st.session_state.quiz_completed = True
-                st.error("⏰ Time's up! Quiz auto-submitted.")
-            
-            minutes_remaining = int(remaining_time // 60)
-            seconds_remaining = int(remaining_time % 60)
-            
-            st.markdown(f"""
-            <div class="timer-box">
-                ⏰ Time Remaining: {minutes_remaining:02d}:{seconds_remaining:02d}
-            </div>
-            """, unsafe_allow_html=True)
+            elif timer_type == "Per Question Timer":
+                elapsed_question_time = time.time() - st.session_state.question_start_time
+                remaining_question_time = max(0, question_seconds - elapsed_question_time)
+                
+                if remaining_question_time <= 0:
+                    # Auto move to next question
+                    if st.session_state.current_q < len(questions) - 1:
+                        st.session_state.current_q += 1
+                        st.session_state.question_start_time = time.time()
+                        st.rerun()
+                    else:
+                        st.session_state.quiz_completed = True
+                
+                st.markdown(f"""
+                <div class="timer-box">
+                    ⏰ Question Time: {int(remaining_question_time)} seconds
+                </div>
+                """, unsafe_allow_html=True)
         
-        # Quick Navigation - Jump to any question
+        # Quick Navigation
         st.sidebar.subheader("📍 Jump to Question")
-        col_count = 5
-        cols = st.sidebar.columns(col_count)
-        
+        cols = st.sidebar.columns(4)
         for idx in range(len(questions)):
-            with cols[idx % col_count]:
+            with cols[idx % 4]:
+                btn_type = "primary" if idx == st.session_state.current_q else "secondary"
                 if st.button(f"Q{idx+1}", key=f"nav_{idx}"):
                     st.session_state.current_q = idx
+                    st.session_state.question_start_time = time.time()
                     st.rerun()
+        
+        # Progress bar
+        st.markdown('<div class="progress-container">', unsafe_allow_html=True)
+        progress = (st.session_state.current_q + 1) / len(questions)
+        st.progress(progress)
+        st.caption(f"Progress: {st.session_state.current_q + 1}/{len(questions)} questions")
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Main quiz interface
         if not st.session_state.quiz_completed:
             current_q = questions[st.session_state.current_q]
             
+            # Question container - Ediquity style
             st.markdown(f"""
-            <div class="question-box">
-                <h3>Q{st.session_state.current_q + 1}. {current_q['question']}</h3>
+            <div class="question-container">
+                <div class="question-text">
+                    Q{st.session_state.current_q + 1}. {current_q['question']}
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
-            # Options
-            user_answer = st.radio(
-                "**Select your answer:**",
-                options=list(current_q['options'].keys()),
-                format_func=lambda x: f"**{x})** {current_q['options'][x]}",
-                key=f"q_{current_q['id']}"
-            )
+            # Options in grid layout
+            st.markdown('<div class="options-grid">', unsafe_allow_html=True)
             
-            st.session_state.user_answers[current_q['id']] = user_answer
+            # Create two columns for options
+            col1, col2 = st.columns(2)
             
-            # Check Answer Button at bottom
-            col1, col2, col3 = st.columns([1, 1, 1])
+            options_list = list(current_q['options'].items())
+            half = len(options_list) // 2
             
             with col1:
-                if st.button("✅ Check Answer", use_container_width=True):
-                    st.session_state.show_answer[current_q['id']] = True
+                for opt_letter, opt_text in options_list[:half]:
+                    is_selected = st.session_state.user_answers.get(current_q['id']) == opt_letter
+                    selection_class = "selected" if is_selected else ""
+                    
+                    st.markdown(f"""
+                    <div class="option-card {selection_class}" onclick="selectOption('{opt_letter}')">
+                        <strong>{opt_letter})</strong> {opt_text}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Hidden radio for functionality
+                    if st.button(f"Select {opt_letter}", key=f"btn_{current_q['id']}_{opt_letter}", 
+                               type="primary" if is_selected else "secondary"):
+                        st.session_state.user_answers[current_q['id']] = opt_letter
+                        st.rerun()
             
-            # Show answer if checked
-            if st.session_state.show_answer.get(current_q['id']):
-                if user_answer == current_q['correct_answer']:
-                    st.success("🎉 Correct! Well done!")
-                else:
-                    st.error(f"❌ Incorrect! Correct answer is **{current_q['correct_answer']}) {current_q['options'][current_q['correct_answer']]}**")
+            with col2:
+                for opt_letter, opt_text in options_list[half:]:
+                    is_selected = st.session_state.user_answers.get(current_q['id']) == opt_letter
+                    selection_class = "selected" if is_selected else ""
+                    
+                    st.markdown(f"""
+                    <div class="option-card {selection_class}" onclick="selectOption('{opt_letter}')">
+                        <strong>{opt_letter})</strong> {opt_text}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if st.button(f"Select {opt_letter}", key=f"btn2_{current_q['id']}_{opt_letter}",
+                               type="primary" if is_selected else "secondary"):
+                        st.session_state.user_answers[current_q['id']] = opt_letter
+                        st.rerun()
             
-            # Navigation buttons at bottom
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Navigation buttons
             st.markdown("---")
-            nav_col1, nav_col2, nav_col3, nav_col4 = st.columns([1, 1, 1, 1])
+            nav_col1, nav_col2, nav_col3, nav_col4 = st.columns(4)
             
             with nav_col1:
                 if st.button("◀ Previous", use_container_width=True) and st.session_state.current_q > 0:
                     st.session_state.current_q -= 1
+                    st.session_state.question_start_time = time.time()
                     st.rerun()
             
             with nav_col2:
                 if st.session_state.current_q < len(questions) - 1:
                     if st.button("Next ▶", use_container_width=True):
                         st.session_state.current_q += 1
+                        st.session_state.question_start_time = time.time()
                         st.rerun()
-            
-            with nav_col3:
-                if st.session_state.current_q == len(questions) - 1:
+                else:
                     if st.button("Finish 🏁", use_container_width=True, type="primary"):
                         st.session_state.quiz_completed = True
                         st.rerun()
             
+            with nav_col3:
+                if st.button("📌 Mark for Review", use_container_width=True):
+                    st.info("Question marked for review!")
+            
             with nav_col4:
-                if st.button("🔄 Restart", use_container_width=True):
-                    for key in ['user_answers', 'current_q', 'show_answer', 'quiz_completed', 'score', 'quiz_started', 'start_time']:
+                if st.button("🔄 Restart Quiz", use_container_width=True):
+                    for key in ['user_answers', 'current_q', 'quiz_completed', 'quiz_started', 'start_time', 'question_start_time']:
                         if key in st.session_state:
                             del st.session_state[key]
                     st.rerun()
-            
-            # Progress bar
-            progress = (st.session_state.current_q + 1) / len(questions)
-            st.progress(progress)
-            st.caption(f"Progress: {st.session_state.current_q + 1}/{len(questions)} questions")
         
-        # Show results when completed
+        # Results screen
         else:
             st.balloons()
             st.markdown('<div class="main-header">🏆 Quiz Completed!</div>', unsafe_allow_html=True)
@@ -273,33 +380,43 @@ Answer: C
             
             score_percent = (correct_count / len(questions)) * 100
             
-            # Display score with emoji based on performance
-            if score_percent == 100:
-                st.success(f"🎯 Perfect Score! {correct_count}/{len(questions)} (100%)")
-            elif score_percent >= 80:
-                st.success(f"🌟 Excellent! {correct_count}/{len(questions)} ({score_percent:.1f}%)")
-            elif score_percent >= 60:
-                st.info(f"👍 Good Job! {correct_count}/{len(questions)} ({score_percent:.1f}%)")
-            else:
-                st.warning(f"💪 Keep Practicing! {correct_count}/{len(questions)} ({score_percent:.1f}%)")
+            # Results card
+            st.markdown(f"""
+            <div class="result-card">
+                <h2>Your Score: {correct_count}/{len(questions)}</h2>
+                <h1>{score_percent:.1f}%</h1>
+                <p>{'🎯 Perfect Score!' if score_percent == 100 else '🌟 Great Job!' if score_percent >= 80 else '👍 Well Done!'}</p>
+            </div>
+            """, unsafe_allow_html=True)
             
             # Detailed results
-            with st.expander("📊 Detailed Results", expanded=True):
+            with st.expander("📊 Detailed Analysis", expanded=True):
                 for i, q in enumerate(questions):
                     user_ans = st.session_state.user_answers.get(q['id'])
                     correct_ans = q['correct_answer']
+                    is_correct = user_ans == correct_ans
                     
-                    if user_ans == correct_ans:
-                        st.success(f"**Q{i+1}. {q['question']}** - Your answer: {user_ans} ✅")
+                    if is_correct:
+                        st.success(f"**Q{i+1}.** {q['question']} - ✅ Your answer: {user_ans}")
                     else:
-                        st.error(f"**Q{i+1}. {q['question']}** - Your answer: {user_ans} ❌ | Correct: {correct_ans}")
+                        st.error(f"**Q{i+1}.** {q['question']} - ❌ Your answer: {user_ans} | ✅ Correct: {correct_ans}")
             
             # Restart button
-            if st.button("🔄 Start New Quiz", use_container_width=True):
-                for key in ['user_answers', 'current_q', 'show_answer', 'quiz_completed', 'score', 'quiz_started', 'start_time']:
+            if st.button("🔄 Start New Quiz", use_container_width=True, type="primary"):
+                for key in ['user_answers', 'current_q', 'quiz_completed', 'quiz_started', 'start_time', 'question_start_time']:
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()
+
+    # JavaScript for better interaction
+    st.markdown("""
+    <script>
+    function selectOption(option) {
+        // This would need proper Streamlit components for full functionality
+        console.log("Selected option: " + option);
+    }
+    </script>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
